@@ -143,6 +143,7 @@ class Scalar:
         assert self.is_leaf(), "Only leaf variables can have derivatives."
         if self.derivative is None:
             self.derivative = 0.0
+        assert isinstance(x, (int, float)), "The derivative should be a number"
         self.derivative += x
 
     def is_leaf(self) -> bool:
@@ -162,15 +163,19 @@ class Scalar:
         assert h is not None
         assert h.last_fn is not None
         assert h.ctx is not None
-
-        # if self.is_constant():
-        #     deriv = None
-        #     return deriv
-        deriv = h.last_fn.backward(ctx=h.ctx, d_output=d_output)
         variables = h.inputs
         back = []
+        deriv = h.last_fn.backward(ctx=h.ctx, d_output=d_output)
+        assert deriv is not None, "Derivative can not be None"
+        if not isinstance(deriv, (list, tuple)):
+            deriv = [deriv]
+        assert len(variables) == len(deriv), (
+            "Variables and derivatives should have the same length"
+        )
         for var, der in zip(variables, deriv):
-            back.append([var, der])
+            if not var.is_constant():
+                back.append((var, der))
+        print(back)
         return back
 
     def backward(self, d_output: Optional[float] = None) -> None:
@@ -204,7 +209,7 @@ but was expecting derivative f'=%f from central difference."""
     for i, x in enumerate(scalars):
         check = central_difference(f, *scalars, arg=i)
         print(str([x.data for x in scalars]), x.derivative, i, check)
-        assert x.derivative is not None
+        assert x.derivative is not None, "Derivative should not be `None`"
         np.testing.assert_allclose(
             x.derivative,
             check.data,
